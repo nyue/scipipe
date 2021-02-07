@@ -6,7 +6,9 @@
 package scipipe
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"sort"
@@ -246,6 +248,60 @@ func (wf *Workflow) DotGraph() (dot string) {
 	return
 }
 
+// Dump exports workflow as debugging text
+func (wf *Workflow) Dump(filePath string) {
+	for _, p := range wf.ProcsSorted() {
+		fmt.Println(p.Name())
+	}
+}
+
+// Serialize exports workflow as JSON description
+func (wf *Workflow) Serialize(filePath string) {
+
+	type PortGroup struct {
+		Name string
+	}
+	type ProcessGroup struct {
+		Name     string
+		InPorts  []PortGroup
+		OutPorts []PortGroup
+	}
+	type ConnectionGroup struct {
+		Name string
+	}
+	type WorkflowGroup struct {
+		ID        int
+		Name      string
+		Colors    []string
+		Processes []ProcessGroup
+	}
+	group := WorkflowGroup{
+		ID:     1,
+		Name:   "Reds",
+		Colors: []string{"Crimson", "Red", "Ruby", "Maroon"},
+	}
+	b, err := json.Marshal(group)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	fmt.Println("Serialize")
+	jsonFile, err := os.Create(filePath)
+	CheckWithMsg(err, "Could not create dot file "+filePath)
+	jsonFile.Write(b)
+}
+
+// Deserialize imports workflow from JSON description
+func (wf *Workflow) Deserialize(filePath string) {
+	fmt.Println("Deserialize")
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return
+	}
+	fmt.Println("Contents of file:", string(data))
+}
+
 // ----------------------------------------------------------------------------
 // Run methods
 // ----------------------------------------------------------------------------
@@ -386,7 +442,7 @@ func (wf *Workflow) reconnectDeadEndConnections(procs map[string]WorkflowProcess
 		}
 	}
 
-	if foundNewDriverProc && len(procs) > 1 {  // Allow for a workflow with a single process
+	if foundNewDriverProc && len(procs) > 1 { // Allow for a workflow with a single process
 		// A process can't both be the driver and be included in the main procs
 		// map, so if we have an alerative driver, it should not be in the main
 		// procs map
